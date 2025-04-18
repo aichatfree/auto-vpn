@@ -1,0 +1,41 @@
+name: Deploy WireGuard VPN
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Set up WireGuard and show config
+        run: |
+          sudo apt update
+          sudo apt install wireguard curl -y
+
+          SERVER_PRIV=$(wg genkey)
+          SERVER_PUB=$(echo $SERVER_PRIV | wg pubkey)
+          CLIENT_PRIV=$(wg genkey)
+          CLIENT_PUB=$(echo $CLIENT_PRIV | wg pubkey)
+          PSK=$(wg genpsk)
+
+          PUBLIC_IP=$(curl -s ifconfig.me)
+          
+          echo "🔑 Your WireGuard Client Config:"
+          echo "--------------------------------"
+          echo "[Interface]"
+          echo "PrivateKey = $CLIENT_PRIV"
+          echo "Address = 10.66.66.2/24"
+          echo "DNS = 1.1.1.1"
+          echo ""
+          echo "[Peer]"
+          echo "PublicKey = $SERVER_PUB"
+          echo "PresharedKey = $PSK"
+          echo "Endpoint = $PUBLIC_IP:51820"
+          echo "AllowedIPs = 0.0.0.0/0"
+          echo "PersistentKeepalive = 25"
+          echo "--------------------------------"
+
+          echo "✅ Config generated — server will auto-shutdown in 6 hours"
+          sleep 21600
