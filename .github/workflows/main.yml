@@ -1,0 +1,10 @@
+jobs:
+  deploy-vpn:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up WireGuard
+        uses: g1ibby/auto-vpn@main
+        with:
+          region: 'uk-london'
+          auto_delete: true
+          delete_after: 6h
