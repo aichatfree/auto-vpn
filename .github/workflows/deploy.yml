@@ -1,0 +1,52 @@
+name: Deploy WireGuard VPN
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up WireGuard
+        run: |
+          sudo apt update
+          sudo apt install wireguard -y
+          
+          sudo wg genkey | tee server_private_key | wg pubkey > server_public_key
+          sudo wg genkey | tee client_private_key | wg pubkey > client_public_key
+          
+          sudo sysctl -w net.ipv4.ip_forward=1
+          
+          cat <<EOF | sudo tee wg0.conf
+[Interface]
+Address = 10.10.0.1/24
+ListenPort = 51820
+PrivateKey = $(cat server_private_key)
+
+[Peer]
+PublicKey = $(cat client_public_key)
+AllowedIPs = 10.10.0.2/32
+EOF
+
+          sudo ip link add dev wg0 type wireguard
+          sudo ip addr add 10.10.0.1/24 dev wg0
+          sudo ip link set up dev wg0
+          sudo wg set wg0 private-key ./server_private_key listen-port 51820
+          
+          echo "::group::Client Config"
+          echo "[Interface]"
+          echo "PrivateKey = $(cat client_private_key)"
+          echo "Address = 10.10.0.2/24"
+          echo "DNS = 1.1.1.1"
+          echo ""
+          echo "[Peer]"
+          echo "PublicKey = $(cat server_public_key)"
+          echo "Endpoint = $(curl -s ifconfig.me):51820"
+          echo "AllowedIPs = 0.0.0.0/0"
+          echo "PersistentKeepalive = 25"
+          echo "::endgroup::"
+          
+          sleep $((6*60*60))  # 6 hours
